@@ -767,6 +767,111 @@
       html {
         scroll-behavior: smooth;
       }
+
+      /* Floating chathead styles */
+      #askturing_chathead {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(
+          135deg,
+          var(--accent-primary),
+          var(--accent-secondary)
+        );
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 2000;
+        border: none;
+      }
+
+      #askturing_chat_modal {
+        position: fixed;
+        right: 20px;
+        bottom: 100px;
+        width: 380px;
+        height: 600px;
+        max-width: calc(100% - 40px);
+        border-radius: 16px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+        z-index: 1999;
+        display: none;
+        background: #ffffff;
+        border: 1px solid var(--border);
+      }
+
+      #askturing_chat_modal.open {
+        display: block;
+      }
+
+      .askturing-chat-header {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+      }
+
+      .askturing-chat-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.2px;
+      }
+
+      .askturing-chat-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .askturing-chat-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 6px;
+        border-radius: 6px;
+      }
+
+      .askturing-chat-btn:hover {
+        color: var(--accent-primary);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .askturing-chat-iframe {
+        width: 100%;
+        height: calc(100% - 48px);
+        border: 0;
+        display: block;
+        background: #fff;
+      }
+
+      @media (max-width: 480px) {
+        #askturing_chat_modal {
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 70vh;
+          border-radius: 12px 12px 0 0;
+        }
+
+        #askturing_chathead {
+          right: 16px;
+          bottom: 16px;
+          width: 56px;
+          height: 56px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1254,38 +1359,113 @@
     </script>
     <script>
       (function () {
-        const container = document.createElement("div");
-        container.id = "askturing_chatbot_container";
-        container.style.width = "100%";
-        container.style.display = "flex";
-        container.style.justifyContent = "center";
-        container.style.alignItems = "center";
-        container.style.margin = "20px 0";
-
-        const iframe = document.createElement("iframe");
-        iframe.id = "askturing_chatbot_embed";
-
-        iframe.src =
+        const EMBED_URL =
           "https://qa.askturing.bot/embed/28b9bb6e-3c25-4559-84e4-1267bf1f3354?clientUrl=" +
           encodeURIComponent(window.location.href);
 
-        iframe.referrerPolicy = "origin";
-        iframe.width = "100%";
-        iframe.height = "600px";
-        iframe.style.maxWidth = "800px";
-        iframe.style.border = "1px solid #e0e0e0";
-        iframe.style.borderRadius = "24px";
-        iframe.style.boxShadow = "0 2px 10px rgba(0, 0, 0, 0.1)";
-        iframe.style.backgroundColor = "#ffffff";
-        iframe.style.overflow = "hidden";
-        iframe.allow = "clipboard-write";
+        function createChathead() {
+          const btn = document.createElement("button");
+          btn.id = "askturing_chathead";
+          btn.setAttribute("aria-label", "Open chat");
 
-        container.appendChild(iframe);
+          // simple chat bubble SVG
+          btn.innerHTML = `
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" fill="white" opacity="0.95"/>
+            </svg>`;
 
-        document.currentScript.parentNode.insertBefore(
-          container,
-          document.currentScript,
-        );
+          btn.addEventListener("click", toggleModal);
+          document.body.appendChild(btn);
+        }
+
+        function createModal() {
+          const modal = document.createElement("div");
+          modal.id = "askturing_chat_modal";
+
+          const header = document.createElement("div");
+          header.className = "askturing-chat-header";
+
+          const title = document.createElement("div");
+          title.className = "askturing-chat-title";
+          title.textContent = "AskTuring";
+
+          const controls = document.createElement("div");
+          controls.className = "askturing-chat-controls";
+
+          const minimizeBtn = document.createElement("button");
+          minimizeBtn.className = "askturing-chat-btn";
+          minimizeBtn.setAttribute("aria-label", "Minimize chat");
+          minimizeBtn.textContent = "—";
+          minimizeBtn.addEventListener("click", () => toggleModal());
+
+          const closeBtn = document.createElement("button");
+          closeBtn.className = "askturing-chat-btn";
+          closeBtn.setAttribute("aria-label", "Close chat");
+          closeBtn.textContent = "✕";
+          closeBtn.addEventListener("click", closeModal);
+
+          controls.appendChild(minimizeBtn);
+          controls.appendChild(closeBtn);
+
+          header.appendChild(title);
+          header.appendChild(controls);
+
+          const iframe = document.createElement("iframe");
+          iframe.className = "askturing-chat-iframe";
+          iframe.src = EMBED_URL;
+          iframe.referrerPolicy = "origin";
+          iframe.allow = "clipboard-write";
+
+          modal.appendChild(header);
+          modal.appendChild(iframe);
+
+          // close when clicking outside (on mobile, touches can be tricky)
+          document.addEventListener("click", (e) => {
+            const modalEl = document.getElementById("askturing_chat_modal");
+            const chathead = document.getElementById("askturing_chathead");
+            if (!modalEl || !modalEl.classList.contains("open")) return;
+            if (
+              modalEl.contains(e.target) ||
+              (chathead && chathead.contains(e.target))
+            )
+              return;
+            closeModal();
+          });
+
+          document.body.appendChild(modal);
+        }
+
+        function toggleModal() {
+          const modal = document.getElementById("askturing_chat_modal");
+          if (!modal) return;
+          const isOpen = modal.classList.contains("open");
+          if (isOpen) {
+            modal.classList.remove("open");
+          } else {
+            modal.classList.add("open");
+          }
+        }
+
+        function closeModal() {
+          const modal = document.getElementById("askturing_chat_modal");
+          if (modal) modal.classList.remove("open");
+        }
+
+        window.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeModal();
+        });
+
+        // Initialize on DOM ready
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", init);
+        } else {
+          init();
+        }
+
+        function init() {
+          createChathead();
+          createModal();
+        }
       })();
     </script>
   </body>
